@@ -9,8 +9,11 @@ import {
     Search, Filter, Plus, Download, ChevronRight, TrendingUp, Users,
     Calendar, DollarSign, ArrowUpRight, ArrowDownRight, MoreHorizontal,
     Table as TableIcon, LayoutDashboard, Settings, LogOut, Loader2,
-    Edit, Trash2
+    Edit, Trash2, FileText
 } from "lucide-react";
+import { jsPDF } from "jspdf";
+import autoTable from "jspdf-autotable";
+import html2canvas from "html2canvas";
 
 interface DashboardProps {
     initialData: any[][] | null | undefined;
@@ -27,6 +30,7 @@ export default function Dashboard({ initialData }: DashboardProps) {
     const [editingRowIndex, setEditingRowIndex] = useState<number | null>(null);
     const [newRow, setNewRow] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const chartRef = React.useRef<HTMLDivElement>(null);
 
     const headers = data[0] || [];
     const rows = useMemo(() => data.slice(1), [data]);
@@ -159,6 +163,73 @@ export default function Dashboard({ initialData }: DashboardProps) {
         }
     };
 
+    const generatePDFReport = async () => {
+        setIsLoading(true);
+        try {
+            const doc = new jsPDF();
+            const pageWidth = doc.internal.pageSize.getWidth();
+
+            // Header
+            doc.setFillColor(30, 41, 59); // slate-800
+            doc.rect(0, 0, pageWidth, 40, 'F');
+            doc.setTextColor(255, 255, 255);
+            doc.setFontSize(22);
+            doc.text("Business Operations Report", 15, 25);
+            doc.setFontSize(10);
+            doc.text(`Generated on: ${new Date().toLocaleString()}`, 15, 33);
+
+            // Metrics
+            doc.setTextColor(30, 41, 59);
+            doc.setFontSize(14);
+            doc.text("Summary Metrics", 15, 55);
+
+            let yPos = 65;
+            stats.forEach((stat, i) => {
+                doc.setFontSize(10);
+                doc.setTextColor(100, 116, 139); // slate-500
+                doc.text(stat.label.toUpperCase(), 15 + (i % 2) * 90, yPos);
+                doc.setFontSize(12);
+                doc.setTextColor(30, 41, 59);
+                doc.text(String(stat.value), 15 + (i % 2) * 90, yPos + 7);
+                if (i % 2 === 1) yPos += 20;
+            });
+
+            // Capture Chart
+            if (chartRef.current) {
+                const canvas = await html2canvas(chartRef.current, { scale: 2 });
+                const imgData = canvas.toDataURL('image/png');
+                doc.addPage();
+                doc.setTextColor(30, 41, 59);
+                doc.setFontSize(14);
+                doc.text("Performance Data Visualization", 15, 20);
+                doc.addImage(imgData, 'PNG', 15, 30, pageWidth - 30, (pageWidth - 30) * (canvas.height / canvas.width));
+            }
+
+            // Table
+            doc.addPage();
+            doc.setFontSize(14);
+            doc.text("Detailed Record Set", 15, 20);
+
+            autoTable(doc, {
+                startY: 30,
+                head: [headers],
+                body: rows,
+                theme: 'striped',
+                headStyles: { fillColor: [79, 70, 229], fontSize: 8 },
+                bodyStyles: { fontSize: 7 },
+                alternateRowStyles: { fillColor: [248, 250, 252] },
+                margin: { left: 15, right: 15 }
+            });
+
+            doc.save(`Report_${new Date().toISOString().split('T')[0]}.pdf`);
+        } catch (error) {
+            console.error("PDF Export failed:", error);
+            alert("Failed to generate PDF. Please try again.");
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-slate-50 flex">
             {/* Sidebar */}
@@ -224,8 +295,14 @@ export default function Dashboard({ initialData }: DashboardProps) {
                         >
                             <Loader2 size={20} className={isLoading ? "animate-spin" : ""} />
                         </button>
-                        <button className="p-3 bg-white border border-slate-200 rounded-xl text-slate-600 hover:bg-slate-50 shadow-sm transition-all">
-                            <Download size={20} />
+                        <button
+                            onClick={generatePDFReport}
+                            disabled={isLoading}
+                            className="flex items-center gap-2 bg-white border border-slate-200 p-3 rounded-xl text-slate-600 hover:bg-slate-50 shadow-sm transition-all disabled:opacity-50"
+                            title="Download Report"
+                        >
+                            {isLoading ? <Loader2 size={20} className="animate-spin" /> : <Download size={20} />}
+                            <span className="hidden sm:inline font-bold text-sm">Report</span>
                         </button>
                         <button
                             onClick={() => setIsAddingRow(true)}
@@ -267,7 +344,7 @@ export default function Dashboard({ initialData }: DashboardProps) {
                                         <p className="text-slate-500 text-sm font-medium">Visualizing the top 10 entries from your sheet.</p>
                                     </div>
                                 </div>
-                                <div className="h-[350px] w-full">
+                                <div className="h-[350px] w-full" ref={chartRef}>
                                     <ResponsiveContainer width="100%" height="100%">
                                         <AreaChart data={chartData}>
                                             <defs>
