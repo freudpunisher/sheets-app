@@ -86,7 +86,7 @@ export default function Dashboard({ initialData }: DashboardProps) {
             { label: "Total Projects", value: uniqueProjects, icon: TableIcon, color: "text-blue-600", bg: "bg-blue-50" },
             { label: "Total Hours", value: totalHours.toFixed(1), icon: Calendar, color: "text-purple-600", bg: "bg-purple-50" },
             { label: "Avg Hours/Entry", value: avgHours.toFixed(1), icon: TrendingUp, color: "text-emerald-600", bg: "bg-emerald-50" },
-            { label: "Active Entries", value: filteredRows.length, icon: Users, color: "text-amber-600", bg: "bg-amber-50" },
+            { label: "Total Entries", value: rows.length, icon: Users, color: "text-amber-600", bg: "bg-amber-50" },
         ];
     }, [filteredRows, headers]);
 
